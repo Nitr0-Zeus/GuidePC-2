@@ -12,6 +12,9 @@ export function createQueries(db) {
   const listAlertsStmt = db.prepare(
     'SELECT ts, alertname, state, value FROM alerts ORDER BY ts DESC, id DESC LIMIT ?'
   );
+  const exportStmt = db.prepare(
+    'SELECT ts, metric, value FROM samples WHERE ts >= ? AND ts <= ? ORDER BY ts ASC'
+  );
 
   return {
     latest(nowSec, windowSec = 120) {
@@ -35,6 +38,9 @@ export function createQueries(db) {
     },
     listAlerts(limit = 20) {
       return listAlertsStmt.all(limit);
+    },
+    iterateRange(fromSec, toSec) {
+      return exportStmt.iterate(fromSec, toSec);
     },
   };
 }

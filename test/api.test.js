@@ -96,6 +96,24 @@ describe('API', () => {
     expect(res.body.points).toEqual([]);
   });
 
+  it('GET /api/export.csv devolve CSV com header e Content-Disposition', async () => {
+    const { app, now } = setup();
+    const res = await request(app).get(`/api/export.csv?from=${now - 120}&to=${now}`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.text.startsWith('ts,metric,value')).toBe(true);
+    expect(res.text).toContain('cpu.total');
+    expect(res.text).toContain('mem.used');
+  });
+
+  it('GET /api/export.csv com período inválido retorna 400', async () => {
+    const { app } = setup();
+    const res = await request(app).get('/api/export.csv?from=100&to=100');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf('string');
+  });
+
   it('POST /api/alerts/webhook grava os alertas do payload', async () => {
     const { app, db } = setup();
     const res = await request(app)

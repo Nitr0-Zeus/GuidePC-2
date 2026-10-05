@@ -86,6 +86,22 @@ describe('database layer', () => {
     db.close();
   });
 
+  it('iterateRange percorre todo o período em ordem cronológica', () => {
+    const db = openTemp();
+    createWriter(db).insertBatch([
+      { ts: 100, metric: 'cpu.total', value: 1 },
+      { ts: 200, metric: 'cpu.total', value: 2 },
+      { ts: 300, metric: 'mem.used', value: 3 },
+      { ts: 400, metric: 'mem.used', value: 4 },
+    ]);
+    const rows = [...createQueries(db).iterateRange(150, 300)];
+    expect(rows).toEqual([
+      { ts: 200, metric: 'cpu.total', value: 2 },
+      { ts: 300, metric: 'mem.used', value: 3 },
+    ]);
+    db.close();
+  });
+
   it('purgeOlderThan remove só o que é anterior ao corte e devolve a contagem', () => {
     const db = openTemp();
     const writer = createWriter(db);

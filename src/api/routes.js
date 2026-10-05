@@ -1,6 +1,12 @@
 import { Router } from 'express';
+import { once } from 'node:events';
 import { readThresholds } from './thresholds.js';
 import { parseAlerts } from './parseAlerts.js';
+
+const csvCell = (v) => {
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 export function createApiRouter({ queries, writer, thresholdsPath, hardware, processes, grafanaHealth }) {
   const router = Router();
@@ -54,6 +60,24 @@ export function createApiRouter({ queries, writer, thresholdsPath, hardware, pro
       return res.status(400).json({ error: 'Parâmetros from/to inválidos' });
     }
     return res.json(queries.range(req.params.metric, from, to));
+  });
+
+  router.get('/export.csv', async (req, res) => {
+    const now = Math.floor(Date.now() / 1000);
+    const from = req.query.from !== undefined ? Number(req.query.from) : now - 3600;
+    const to = req.query.to !== undefined ? Number(req.query.to) : now + 1;
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
+      return res.status(400).json({ error: 'Parâmetros from/to inválidos' });
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="guidepc2-metricas.csv"');
+    res.write('ts,metric,value\n');
+    for (const row of queries.iterateRange(from, to)) {
+      const line = `${row.ts},${csvCell(row.metric)},${row.value}\n`;
+      if (!res.write(line)) await once(res, 'drain');
+    }
+    res.end();
+    return undefined;
   });
 
   router.post('/alerts/webhook', (req, res) => {
