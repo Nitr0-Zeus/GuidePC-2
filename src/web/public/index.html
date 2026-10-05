@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <title>GuidePC 2 — Resumo do sistema</title>
   <style>
     :root {
@@ -412,7 +413,7 @@
         : Math.min(100, item.value);
       const note = item.prefix === 'net.conns.established'
         ? 'net.conns.established'
-        : item.name + (item.labelSuffix ?? '');
+        : item.name;
       return `
         <article class="vital${changed ? ' is-flash' : ''}" data-key="${item.key}">
           <p class="label">${t.label}${item.labelSuffix ?? ''}</p>
