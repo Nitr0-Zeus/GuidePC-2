@@ -30,8 +30,9 @@ const collector = createCollector({
 collector.start();
 
 const app = createApp({ queries });
-const server = app.listen(config.port, () => {
-  console.log(`GuidePC 2 em http://localhost:${config.port}`);
+const server = app.listen(config.port, config.host, () => {
+  const host = config.host === '0.0.0.0' ? 'localhost' : config.host;
+  console.log(`GuidePC 2 em http://${host}:${config.port}`);
 });
 
 function shutdown() {
