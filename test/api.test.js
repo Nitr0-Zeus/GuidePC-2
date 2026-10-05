@@ -182,4 +182,12 @@ describe('API', () => {
     expect(res.status).toBe(200);
     expect(res.body.cpu.brand).toBe('Ryzen 5');
   });
+
+  it('GET /api/processes devolve cpuTop e memTop do serviço', async () => {
+    const fixture = { all: 1, running: 1, cpuTop: [{ pid: 1, name: 'x', cpu: 50, mem: 10, user: 'u' }], memTop: [] };
+    const { app } = setup({ processes: { get: async () => fixture } });
+    const res = await request(app).get('/api/processes');
+    expect(res.status).toBe(200);
+    expect(res.body.cpuTop[0].cpu).toBe(50);
+  });
 });

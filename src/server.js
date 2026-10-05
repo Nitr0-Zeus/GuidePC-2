@@ -5,6 +5,7 @@ import { createWriter } from './db/writer.js';
 import { createQueries } from './db/queries.js';
 import { createCollector } from './collector/index.js';
 import { createHardwareService } from './services/hardware.js';
+import { createProcessesService } from './services/processes.js';
 import { createApp } from './app.js';
 
 const db = openDatabase(config.dbPath);
@@ -37,6 +38,7 @@ const app = createApp({
   writer,
   thresholdsPath: config.thresholdsPath,
   hardware: createHardwareService({ si }),
+  processes: createProcessesService({ si }),
 });
 const server = app.listen(config.port, config.host, () => {
   const host = config.host === '0.0.0.0' ? 'localhost' : config.host;
