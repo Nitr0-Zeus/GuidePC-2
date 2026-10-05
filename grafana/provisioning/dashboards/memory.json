@@ -1,0 +1,76 @@
+{
+  "uid": "guidepc2-memory",
+  "title": "GuidePC 2 â€” MemÃ³ria",
+  "tags": ["guidepc2"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "annotations": { "list": [] },
+  "links": [],
+  "graphTooltip": 1,
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "MemÃ³ria usada",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.used' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.used' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "DisponÃ­vel",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.available' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.available' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "gbytes", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Swap",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.swap' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.swap' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Cache",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.cached' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.cached' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "gbytes", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Uso (%)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.used' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.used' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Swap (%)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.swap' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.swap' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "DisponÃ­vel Ã— Cache (GB)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "targets": [
+        { "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.available' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.available' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] },
+        { "refId": "B", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'mem.cached' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'mem.cached' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }
+      ],
+      "fieldConfig": { "defaults": { "unit": "gbytes", "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    }
+  ]
+}

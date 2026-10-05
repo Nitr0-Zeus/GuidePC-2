@@ -1,0 +1,92 @@
+{
+  "uid": "guidepc2-disk",
+  "title": "GuidePC 2 â€” Disco",
+  "tags": ["guidepc2"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "annotations": { "list": [] },
+  "links": [],
+  "graphTooltip": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "mount",
+        "type": "query",
+        "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+        "query": "SELECT DISTINCT substr(metric, 12) FROM samples WHERE metric LIKE 'disk.usage.%' ORDER BY 1",
+        "definition": "SELECT DISTINCT substr(metric, 12) FROM samples WHERE metric LIKE 'disk.usage.%'",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": [],
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Uso ($mount)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.usage.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.usage.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Livre ($mount)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "gbytes", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "red", "value": 10 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Leitura",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.read' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.read' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "deckbytes", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 4, "type": "stat", "title": "GravaÃ§Ã£o",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "deckbytes", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Uso do volume ($mount)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.usage.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.usage.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 85 }] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "EspaÃ§o livre ($mount)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "gbytes", "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "I/O (MB/s) â€” Linux/macOS",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "targets": [
+        { "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.read' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.read' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] },
+        { "refId": "B", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }
+      ],
+      "fieldConfig": { "defaults": { "unit": "deckbytes", "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    }
+  ]
+}

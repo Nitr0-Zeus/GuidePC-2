@@ -1,0 +1,10 @@
+apiVersion: 1
+datasources:
+  - name: GuidePC 2 Metrics
+    uid: guidepc2-metrics
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      path: /data/metrics.db

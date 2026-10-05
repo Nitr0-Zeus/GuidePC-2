@@ -1,0 +1,19 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: guidepc2-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: guidepc2
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: frser-sqlite-datasource
+    volumes:
+      - ./data:/data:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-storage:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  grafana-storage:

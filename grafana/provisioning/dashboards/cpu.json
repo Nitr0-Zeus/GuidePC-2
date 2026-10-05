@@ -1,0 +1,85 @@
+{
+  "uid": "guidepc2-cpu",
+  "title": "GuidePC 2 â€” CPU",
+  "tags": ["guidepc2"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-1h", "to": "now" },
+  "annotations": { "list": [] },
+  "links": [],
+  "graphTooltip": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "core",
+        "type": "query",
+        "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+        "query": "SELECT DISTINCT substr(metric, 10) FROM samples WHERE metric LIKE 'cpu.core.%' ORDER BY 1",
+        "definition": "SELECT DISTINCT substr(metric, 10) FROM samples WHERE metric LIKE 'cpu.core.%'",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": [],
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "CPU total",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.total' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.total' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Temperatura",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.temp' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.temp' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "celsius", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 75 }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Load 1 min",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.1' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.1' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "short", "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 4 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Uso total (%)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.total' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.total' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 90 }] } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "NÃºcleo ($core)",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.core.$core' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.core.$core' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 12, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Load average",
+      "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
+      "targets": [
+        { "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.1' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.1' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] },
+        { "refId": "B", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.5' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.5' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] },
+        { "refId": "C", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.15' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'cpu.load.15' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "mappings": [], "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "spanNulls": true } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    }
+  ]
+}
