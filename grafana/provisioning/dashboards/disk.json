@@ -1,6 +1,6 @@
 {
   "uid": "guidepc2-disk",
-  "title": "GuidePC 2 â€” Disco",
+  "title": "GuidePC 2 — Disco",
   "tags": ["guidepc2"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -54,7 +54,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto" }
     },
     {
-      "id": 4, "type": "stat", "title": "GravaÃ§Ã£o",
+      "id": 4, "type": "stat", "title": "Gravação",
       "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
       "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
       "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.write' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
@@ -70,7 +70,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
     },
     {
-      "id": 6, "type": "timeseries", "title": "EspaÃ§o livre ($mount)",
+      "id": 6, "type": "timeseries", "title": "Espaço livre ($mount)",
       "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
       "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
       "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'disk.free.$mount' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
@@ -78,7 +78,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
     },
     {
-      "id": 7, "type": "timeseries", "title": "I/O (MB/s) â€” Linux/macOS",
+      "id": 7, "type": "timeseries", "title": "I/O (MB/s) — Linux/macOS",
       "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
       "targets": [

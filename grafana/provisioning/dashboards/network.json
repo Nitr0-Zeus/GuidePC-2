@@ -1,6 +1,6 @@
 {
   "uid": "guidepc2-network",
-  "title": "GuidePC 2 â€” Rede",
+  "title": "GuidePC 2 — Rede",
   "tags": ["guidepc2"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -30,7 +30,7 @@
   },
   "panels": [
     {
-      "id": 1, "type": "stat", "title": "ConexÃµes ativas",
+      "id": 1, "type": "stat", "title": "Conexões ativas",
       "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
       "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
       "targets": [{ "refId": "A", "queryType": "table", "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" }, "rawQueryText": "SELECT ts, value FROM samples WHERE metric = 'net.conns.established' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "queryText": "SELECT ts, value FROM samples WHERE metric = 'net.conns.established' AND ts >= $__from / 1000 AND ts < $__to / 1000 ORDER BY ts ASC", "timeColumns": ["ts"] }],
@@ -70,7 +70,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } }
     },
     {
-      "id": 6, "type": "timeseries", "title": "ConexÃµes Ã— Erros",
+      "id": 6, "type": "timeseries", "title": "Conexões × Erros",
       "datasource": { "type": "frser-sqlite-datasource", "uid": "guidepc2-metrics" },
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 15 },
       "targets": [
