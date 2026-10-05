@@ -2,11 +2,19 @@ import { Router } from 'express';
 import { readThresholds } from './thresholds.js';
 import { parseAlerts } from './parseAlerts.js';
 
-export function createApiRouter({ queries, writer, thresholdsPath }) {
+export function createApiRouter({ queries, writer, thresholdsPath, hardware }) {
   const router = Router();
 
   router.get('/config/thresholds', (_req, res) => {
     res.json(readThresholds(thresholdsPath));
+  });
+
+  router.get('/hardware', async (_req, res, next) => {
+    try {
+      res.json(await hardware.get());
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.get('/health', (_req, res) => {

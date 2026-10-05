@@ -174,4 +174,12 @@ describe('API', () => {
     expect(res.body.cpu).toEqual({ warn: 50, crit: 85 });
     expect(res.body.disk).toEqual({ warn: 70, crit: 85 });
   });
+
+  it('GET /api/hardware devolve o inventário do serviço', async () => {
+    const fixture = { cpu: { brand: 'Ryzen 5' }, system: { model: 'Mod' }, disks: [], graphics: [] };
+    const { app } = setup({ hardware: { get: async () => fixture } });
+    const res = await request(app).get('/api/hardware');
+    expect(res.status).toBe(200);
+    expect(res.body.cpu.brand).toBe('Ryzen 5');
+  });
 });

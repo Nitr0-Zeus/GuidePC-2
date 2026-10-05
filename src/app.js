@@ -5,10 +5,10 @@ import { createApiRouter } from './api/routes.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export function createApp({ queries, writer, thresholdsPath }) {
+export function createApp({ queries, writer, thresholdsPath, hardware }) {
   const app = express();
   app.use(express.json());
-  app.use('/api', createApiRouter({ queries, writer, thresholdsPath }));
+  app.use('/api', createApiRouter({ queries, writer, thresholdsPath, hardware }));
   app.use(express.static(path.join(root, 'src', 'web', 'public')));
   app.use((err, _req, res, _next) => {
     if (err?.type === 'entity.parse.failed') {

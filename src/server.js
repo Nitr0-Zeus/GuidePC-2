@@ -4,6 +4,7 @@ import { openDatabase } from './db/index.js';
 import { createWriter } from './db/writer.js';
 import { createQueries } from './db/queries.js';
 import { createCollector } from './collector/index.js';
+import { createHardwareService } from './services/hardware.js';
 import { createApp } from './app.js';
 
 const db = openDatabase(config.dbPath);
@@ -31,7 +32,12 @@ const collector = createCollector({
 });
 collector.start();
 
-const app = createApp({ queries, writer, thresholdsPath: config.thresholdsPath });
+const app = createApp({
+  queries,
+  writer,
+  thresholdsPath: config.thresholdsPath,
+  hardware: createHardwareService({ si }),
+});
 const server = app.listen(config.port, config.host, () => {
   const host = config.host === '0.0.0.0' ? 'localhost' : config.host;
   console.log(`GuidePC 2 em http://${host}:${config.port}`);
