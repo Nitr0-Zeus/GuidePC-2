@@ -9,6 +9,9 @@ export function createQueries(db) {
   const countStmt = db.prepare(
     'SELECT COUNT(DISTINCT metric) AS c FROM samples WHERE ts >= ?'
   );
+  const listAlertsStmt = db.prepare(
+    'SELECT ts, alertname, state, value FROM alerts ORDER BY ts DESC, id DESC LIMIT ?'
+  );
 
   return {
     latest(nowSec, windowSec = 120) {
@@ -29,6 +32,9 @@ export function createQueries(db) {
     },
     countRecent(windowSec, nowSec = Math.floor(Date.now() / 1000)) {
       return countStmt.get(nowSec - windowSec).c;
+    },
+    listAlerts(limit = 20) {
+      return listAlertsStmt.all(limit);
     },
   };
 }

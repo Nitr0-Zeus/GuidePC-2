@@ -113,4 +113,44 @@ describe('database layer', () => {
     expect(q.countRecent(120, 110)).toBe(2);
     db.close();
   });
+
+  it('cria a tabela alerts com índice por ts', () => {
+    const db = openTemp();
+    const cols = db.prepare("PRAGMA table_info('alerts')").all().map((r) => r.name);
+    expect(cols).toEqual(['id', 'ts', 'alertname', 'state', 'value']);
+    const idx = db.prepare("PRAGMA index_list('alerts')").all().map((r) => r.name);
+    expect(idx).toContain('idx_alerts_ts');
+    db.close();
+  });
+
+  it('insertAlerts grava e listAlerts devolve por ts DESC com limite', () => {
+    const db = openTemp();
+    const writer = createWriter(db);
+    writer.insertAlerts([
+      { ts: 100, alertname: 'CPU alta', state: 'firing', value: 95.5 },
+      { ts: 300, alertname: 'Mem alta', state: 'resolved', value: null },
+      { ts: 200, alertname: 'Disco cheio', state: 'firing', value: 88 },
+    ]);
+    const list = createQueries(db).listAlerts(2);
+    expect(list.length).toBe(2);
+    expect(list[0].alertname).toBe('Mem alta');
+    expect(list[1].alertname).toBe('Disco cheio');
+    expect(list[1].value).toBe(88);
+    expect(list[0].value).toBeNull();
+    db.close();
+  });
+
+  it('purgeAlertsOlderThan remove alertas antes do corte e conta', () => {
+    const db = openTemp();
+    const writer = createWriter(db);
+    writer.insertAlerts([
+      { ts: 100, alertname: 'a', state: 'firing', value: 1 },
+      { ts: 200, alertname: 'b', state: 'firing', value: 2 },
+      { ts: 300, alertname: 'c', state: 'firing', value: 3 },
+    ]);
+    expect(writer.purgeAlertsOlderThan(200)).toBe(1);
+    expect(createQueries(db).listAlerts(50).length).toBe(2);
+    expect(writer.purgeAlertsOlderThan(1000)).toBe(2);
+    db.close();
+  });
 });

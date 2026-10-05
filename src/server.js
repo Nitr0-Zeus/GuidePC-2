@@ -15,7 +15,9 @@ const DAY_MS = 86_400_000;
 function purgeNow() {
   const cutoff = Math.floor(Date.now() / 1000) - config.retentionDays * 86_400;
   const removed = writer.purgeOlderThan(cutoff);
+  const removedAlerts = writer.purgeAlertsOlderThan(cutoff);
   if (removed > 0) console.log(`[retenção] ${removed} amostras removidas`);
+  if (removedAlerts > 0) console.log(`[retenção] ${removedAlerts} alertas removidos`);
 }
 
 purgeNow();

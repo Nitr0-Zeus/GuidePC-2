@@ -11,6 +11,14 @@ CREATE TABLE IF NOT EXISTS samples (
 );
 CREATE INDEX IF NOT EXISTS idx_samples_ts ON samples(ts);
 CREATE INDEX IF NOT EXISTS idx_samples_metric_ts ON samples(metric, ts);
+CREATE TABLE IF NOT EXISTS alerts (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts        INTEGER NOT NULL,
+  alertname TEXT    NOT NULL,
+  state     TEXT    NOT NULL,
+  value     REAL
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts(ts);
 `;
 
 export function openDatabase(dbPath) {
