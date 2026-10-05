@@ -190,4 +190,11 @@ describe('API', () => {
     expect(res.status).toBe(200);
     expect(res.body.cpuTop[0].cpu).toBe(50);
   });
+
+  it('GET /api/health/grafana devolve online do serviço', async () => {
+    const { app } = setup({ grafanaHealth: { get: async () => ({ online: true }) } });
+    const res = await request(app).get('/api/health/grafana');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ online: true });
+  });
 });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { readThresholds } from './thresholds.js';
 import { parseAlerts } from './parseAlerts.js';
 
-export function createApiRouter({ queries, writer, thresholdsPath, hardware, processes }) {
+export function createApiRouter({ queries, writer, thresholdsPath, hardware, processes, grafanaHealth }) {
   const router = Router();
 
   router.get('/config/thresholds', (_req, res) => {
@@ -20,6 +20,14 @@ export function createApiRouter({ queries, writer, thresholdsPath, hardware, pro
   router.get('/processes', async (_req, res, next) => {
     try {
       res.json(await processes.get());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/health/grafana', async (_req, res, next) => {
+    try {
+      res.json(await grafanaHealth.get());
     } catch (error) {
       next(error);
     }

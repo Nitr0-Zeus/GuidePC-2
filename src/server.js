@@ -6,6 +6,7 @@ import { createQueries } from './db/queries.js';
 import { createCollector } from './collector/index.js';
 import { createHardwareService } from './services/hardware.js';
 import { createProcessesService } from './services/processes.js';
+import { createGrafanaHealth } from './services/grafanaHealth.js';
 import { createApp } from './app.js';
 
 const db = openDatabase(config.dbPath);
@@ -39,6 +40,7 @@ const app = createApp({
   thresholdsPath: config.thresholdsPath,
   hardware: createHardwareService({ si }),
   processes: createProcessesService({ si }),
+  grafanaHealth: createGrafanaHealth({ url: config.grafanaHealthUrl }),
 });
 const server = app.listen(config.port, config.host, () => {
   const host = config.host === '0.0.0.0' ? 'localhost' : config.host;

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createHardwareService } from '../src/services/hardware.js';
 import { createProcessesService } from '../src/services/processes.js';
+import { createGrafanaHealth } from '../src/services/grafanaHealth.js';
 
 function fakeSi() {
   const calls = { system: 0, cpu: 0, bios: 0, baseboard: 0, mem: 0, memLayout: 0, diskLayout: 0, graphics: 0 };
@@ -112,5 +113,31 @@ describe('processes service', () => {
     expect(si.chamadas).toBe(1);
     await service.get(10_001);
     expect(si.chamadas).toBe(2);
+  });
+});
+
+describe('grafanaHealth service', () => {
+  it('online quando o endpoint responde ok', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true }));
+    const service = createGrafanaHealth({ url: 'http://x/api/health', fetchFn });
+    expect(await service.get(0)).toEqual({ online: true });
+    expect(fetchFn).toHaveBeenCalledWith('http://x/api/health', expect.anything());
+  });
+
+  it('offline quando responde não-ok ou rejeita (container morto)', async () => {
+    const rejeita = createGrafanaHealth({ url: 'http://x', fetchFn: async () => { throw new Error('ECONNREFUSED'); } });
+    expect(await rejeita.get(0)).toEqual({ online: false });
+    const naoOk = createGrafanaHealth({ url: 'http://x', fetchFn: async () => ({ ok: false }) });
+    expect(await naoOk.get(0)).toEqual({ online: false });
+  });
+
+  it('cacheia por 15s', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true }));
+    const service = createGrafanaHealth({ url: 'http://x', fetchFn, ttlMs: 15_000 });
+    await service.get(0);
+    await service.get(14_999);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    await service.get(15_001);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 });
