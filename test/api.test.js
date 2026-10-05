@@ -34,13 +34,15 @@ afterEach(() => {
 function setup(overrides = {}) {
   const db = openTemp();
   const now = Math.floor(Date.now() / 1000);
-  createWriter(db).insertBatch([
+  const writer = createWriter(db);
+  writer.insertBatch([
     { ts: now - 60, metric: 'cpu.total', value: 33 },
     { ts: now - 5, metric: 'cpu.total', value: 77 },
     { ts: now - 5, metric: 'mem.used', value: 40 },
   ]);
   const app = createApp({
     queries: createQueries(db),
+    writer,
     thresholdsPath: path.join(os.tmpdir(), 'guidepc2-thresholds-inexistente.json'),
     ...overrides,
   });
@@ -94,13 +96,52 @@ describe('API', () => {
     expect(res.body.points).toEqual([]);
   });
 
-  it('POST /api/alerts/webhook aceita payload do Grafana e retorna 200', async () => {
-    const { app } = setup();
+  it('POST /api/alerts/webhook grava os alertas do payload', async () => {
+    const { app, db } = setup();
     const res = await request(app)
       .post('/api/alerts/webhook')
-      .send({ alertName: 'GuidePC 2: CPU acima de 90%', status: 'firing' });
+      .send({
+        status: 'firing',
+        alerts: [
+          {
+            status: 'firing',
+            labels: { alertname: 'GuidePC 2: CPU acima de 90%' },
+            startsAt: '2026-10-05T12:00:00.000Z',
+            values: { A: 95.5 },
+          },
+        ],
+      });
     expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
+    expect(res.body).toEqual({ ok: true, saved: 1 });
+    const rows = db.prepare('SELECT * FROM alerts').all();
+    expect(rows.length).toBe(1);
+    expect(rows[0].alertname).toBe('GuidePC 2: CPU acima de 90%');
+    expect(rows[0].state).toBe('firing');
+    expect(rows[0].value).toBe(95.5);
+  });
+
+  it('POST /api/alerts/webhook sem alerts[] retorna 400 e não grava', async () => {
+    const { app, db } = setup();
+    const res = await request(app)
+      .post('/api/alerts/webhook')
+      .send({ status: 'firing', alertName: 'formato antigo' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf('string');
+    expect(db.prepare('SELECT COUNT(*) AS c FROM alerts').get().c).toBe(0);
+  });
+
+  it('GET /api/alerts lista por ts DESC respeitando limit', async () => {
+    const { app, db } = setup();
+    createWriter(db).insertAlerts([
+      { ts: 100, alertname: 'antigo', state: 'resolved', value: null },
+      { ts: 300, alertname: 'novo', state: 'firing', value: 91 },
+      { ts: 200, alertname: 'meio', state: 'firing', value: null },
+    ]);
+    const res = await request(app).get('/api/alerts?limit=2');
+    expect(res.status).toBe(200);
+    expect(res.body.alerts.map((a) => a.alertname)).toEqual(['novo', 'meio']);
+    const padrao = await request(app).get('/api/alerts');
+    expect(padrao.body.alerts.length).toBe(3);
   });
 
   it('POST /api/alerts/webhook com JSON inválido retorna 400 sem stack', async () => {

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { readThresholds } from './thresholds.js';
+import { parseAlerts } from './parseAlerts.js';
 
-export function createApiRouter({ queries, thresholdsPath }) {
+export function createApiRouter({ queries, writer, thresholdsPath }) {
   const router = Router();
 
   router.get('/config/thresholds', (_req, res) => {
@@ -32,8 +33,19 @@ export function createApiRouter({ queries, thresholdsPath }) {
   });
 
   router.post('/alerts/webhook', (req, res) => {
+    const rows = parseAlerts(req.body);
+    if (!rows) {
+      return res.status(400).json({ error: 'Payload sem alertas para gravar' });
+    }
     console.log('[alerta Grafana]', JSON.stringify(req.body));
-    res.status(200).json({ ok: true });
+    writer.insertAlerts(rows);
+    return res.status(200).json({ ok: true, saved: rows.length });
+  });
+
+  router.get('/alerts', (req, res) => {
+    const parsed = parseInt(String(req.query.limit ?? ''), 10);
+    const limit = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 200) : 20;
+    res.json({ alerts: queries.listAlerts(limit) });
   });
 
   return router;
