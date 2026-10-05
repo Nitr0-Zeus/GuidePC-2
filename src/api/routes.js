@@ -1,7 +1,12 @@
 import { Router } from 'express';
+import { readThresholds } from './thresholds.js';
 
-export function createApiRouter({ queries }) {
+export function createApiRouter({ queries, thresholdsPath }) {
   const router = Router();
+
+  router.get('/config/thresholds', (_req, res) => {
+    res.json(readThresholds(thresholdsPath));
+  });
 
   router.get('/health', (_req, res) => {
     res.json({

@@ -1,0 +1,5 @@
+{
+  "cpu": { "warn": 70, "crit": 90 },
+  "mem": { "warn": 75, "crit": 90 },
+  "disk": { "warn": 70, "crit": 85 }
+}

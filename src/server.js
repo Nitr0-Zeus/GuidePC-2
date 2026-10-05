@@ -29,7 +29,7 @@ const collector = createCollector({
 });
 collector.start();
 
-const app = createApp({ queries });
+const app = createApp({ queries, thresholdsPath: config.thresholdsPath });
 const server = app.listen(config.port, config.host, () => {
   const host = config.host === '0.0.0.0' ? 'localhost' : config.host;
   console.log(`GuidePC 2 em http://${host}:${config.port}`);

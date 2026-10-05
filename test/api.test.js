@@ -31,7 +31,7 @@ afterEach(() => {
   while (dirs.length) fs.rmSync(dirs.pop(), { recursive: true, force: true });
 });
 
-function setup() {
+function setup(overrides = {}) {
   const db = openTemp();
   const now = Math.floor(Date.now() / 1000);
   createWriter(db).insertBatch([
@@ -39,7 +39,12 @@ function setup() {
     { ts: now - 5, metric: 'cpu.total', value: 77 },
     { ts: now - 5, metric: 'mem.used', value: 40 },
   ]);
-  return { app: createApp({ queries: createQueries(db) }), now, db };
+  const app = createApp({
+    queries: createQueries(db),
+    thresholdsPath: path.join(os.tmpdir(), 'guidepc2-thresholds-inexistente.json'),
+    ...overrides,
+  });
+  return { app, now, db };
 }
 
 describe('API', () => {
@@ -106,5 +111,26 @@ describe('API', () => {
       .send('{invalido');
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf('string');
+  });
+
+  it('GET /api/config/thresholds devolve defaults quando o arquivo não existe', async () => {
+    const { app } = setup();
+    const res = await request(app).get('/api/config/thresholds');
+    expect(res.status).toBe(200);
+    expect(res.body.cpu).toEqual({ warn: 70, crit: 90 });
+    expect(res.body.mem).toEqual({ warn: 75, crit: 90 });
+    expect(res.body.disk).toEqual({ warn: 70, crit: 85 });
+  });
+
+  it('GET /api/config/thresholds sobrepõe defaults pelo arquivo', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guidepc2-th-api-'));
+    dirs.push(dir);
+    const file = path.join(dir, 'thresholds.json');
+    fs.writeFileSync(file, JSON.stringify({ cpu: { warn: 50, crit: 85 } }));
+    const { app } = setup({ thresholdsPath: file });
+    const res = await request(app).get('/api/config/thresholds');
+    expect(res.status).toBe(200);
+    expect(res.body.cpu).toEqual({ warn: 50, crit: 85 });
+    expect(res.body.disk).toEqual({ warn: 70, crit: 85 });
   });
 });
