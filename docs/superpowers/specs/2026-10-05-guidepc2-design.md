@@ -60,12 +60,10 @@ Biblioteca: **better-sqlite3** (síncrono, binários pré-compilados no Windows)
 ```sql
 CREATE TABLE IF NOT EXISTS samples (
   id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  ts     INTEGER NOT NULL,          -- epoch ms
+  ts     INTEGER NOT NULL,          -- epoch seconds (exigência do plugin SQLite do Grafana)
   metric TEXT    NOT NULL,          -- ex.: 'cpu.total', 'net.rx.eth0'
   value  REAL    NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_samples_ts        ON samples(ts);
-CREATE INDEX IF NOT EXISTS idx_samples_metric_ts ON samples(metric, ts);
 ```
 
 - Formato normalizado (uma linha por amostra/métrica).
@@ -83,23 +81,24 @@ Job diário: `DELETE FROM samples WHERE ts < ?` (7 dias) +
 
 | Dashboard | Métricas | Origem (systeminformation) |
 |---|---|---|
-| CPU | `cpu.total` (%), `cpu.core.N` (% por núcleo), `cpu.load.1/5/15`, `cpu.temp` | `currentLoad`, `currentLoadInfo`, `cpuTemperature` |
-| Memória | `mem.used` (%), `mem.available` (GB), `mem.swap` (%), `mem.cached` (GB) | `mem`, `memLayout` |
-| Disco | `disk.usage.<vol>` (% por volume), `disk.read` (MB/s), `disk.write` (MB/s) | `fsSize`, `disksIO` |
-| Rede | `net.rx.<iface>` / `net.tx.<iface>` (KB/s), `net.conns.established`, `net.errors` | `networkStats`, `networkConnections`, `networkInterfaces` |
+| CPU | `cpu.total` (%), `cpu.core.N` (% por núcleo), `cpu.load.1/5/15`, `cpu.temp` | `currentLoad`, `os.loadavg()` (omitido no Windows), `cpuTemperature` |
+| Memória | `mem.used` (%), `mem.available` (GB), `mem.swap` (%), `mem.cached` (GB) | `mem` |
+| Disco | `disk.usage.<vol>` (%), `disk.free.<vol>` (GB), `disk.read`/`disk.write` (MB/s) | `fsSize`; `fsStats` (só Linux/macOS — omitido no Windows) |
+| Rede | `net.rx.<iface>` / `net.tx.<iface>` (KB/s, delta entre amostras), `net.conns.established`, `net.errors` | `networkStats`, `networkConnections` |
 
 - Métricas indisponíveis no host (ex.: temperatura em VM) são **omitidas**
   silenciosamente; os painéis toleram série vazia.
 - Coletor falha em um ciclo não derruba o scheduler (try/catch por coleta,
   log de erro, próxima execução segue).
 
-## API (somente leitura)
+## API (somente leitura do banco)
 
 | Rota | Resposta |
 |---|---|
 | `GET /api/health` | `{ status, uptime, lastCollectionAt, metricsCount }` |
 | `GET /api/latest` | `{ ts, values: { "cpu.total": 12.3, ... } }` |
 | `GET /api/metrics/:metric?from=&to=` | `{ metric, points: [{ ts, value }] }` |
+| `POST /api/alerts/webhook` | receiver dos alertas do Grafana — apenas loga o payload e retorna 200 (não escreve no banco) |
 
 ## Página resumo leve
 
@@ -112,22 +111,30 @@ Job diário: `DELETE FROM samples WHERE ts < ?` (7 dias) +
 
 `docker-compose.yml` com um serviço:
 
-- `grafana/grafana:11.x`, porta `3000:3000`.
+- `grafana/grafana:latest`, porta `3000:3000`, com o plugin
+  **`frser-sqlite-datasource`** instalado via `GF_INSTALL_PLUGINS`.
 - Volume: `./data:/data:ro` (**diretório**, não o arquivo isolado — assim o
-  Grafana também enxerga `metrics.db-wal`/`-shm`, exigência para ler um banco
-  em modo WAL; o plugin SQLite abre em read-only).
+  Grafana também enxerga `metrics.db-wal`/`-shm`; o SQLite ≥ 3.22 lê um banco
+  WAL em read-only quando `-shm`/`-wal` existem e são legíveis — caso em que o
+  Node está rodando).
 - Provisionamento montado de `./grafana/provisioning/`.
-- Limitação documentada: enquanto o processo Node para, o `-shm` pode sumir e
-  o Grafana não consegue reabrir o banco — subir o Node primeiro resolve.
+- Limitação documentada: se o processo Node parar, o `-shm` some e o Grafana
+  não consegue reabrir o banco — subir o Node primeiro resolve.
 
 ### Provisionamento Grafana
 
-1. **Data source** `sqlite.yml` apontando para `/data/metrics.db`
-   (plugin SQLite nativo, read-only).
-2. **4 dashboards JSON** (CPU, Memória, Disco, Rede) com queries
-   `SELECT ts, value FROM samples WHERE metric = '...' AND $__timeFilter(ts)`.
+1. **Data source** `sqlite.yml` → tipo `frser-sqlite-datasource`,
+   `jsonData.path: /data/metrics.db` (o plugin acrescenta
+   `_pragma=query_only(1)` por padrão — reforço da regra de escrita única).
+2. **4 dashboards JSON** (CPU, Memória, Disco, Rede). O plugin **não** tem
+   `$timeFilter`; o filtro de período é
+   `ts >= $__from / 1000 AND ts < $__to / 1000`. Séries com nomes dinâmicos
+   (`cpu.core.N`, `disk.usage.<vol>`, `net.rx.<iface>`) usam **variáveis de
+   dashboard** (`$core`, `$mount`, `$iface`) populadas por
+   `SELECT DISTINCT metric FROM samples WHERE metric LIKE '...'`.
 3. **Alertas unificados**: regras provisionadas com thresholds
-   (CPU > 90%, RAM > 90%, disco > 85%) e contact point padrão.
+   (CPU > 90%, RAM > 90%, disco > 85%) e contact point webhook apontando para
+   `POST /api/alerts/webhook` (via `host.docker.internal`).
 
 ## Estrutura do projeto
 
@@ -135,7 +142,8 @@ Job diário: `DELETE FROM samples WHERE ts < ?` (7 dias) +
 GuidePC2/
 ├── package.json / eslint.config.js / .gitignore
 ├── src/
-│   ├── server.js            # bootstrap Express + coletor
+│   ├── server.js            # bootstrap Express + coletor + retenção
+│   ├── app.js               # factory do app Express (testável)
 │   ├── config.js            # portas, intervalo, retenção (env)
 │   ├── collector/
 │   │   ├── index.js         # scheduler de 5s com try/catch
