@@ -97,4 +97,14 @@ describe('API', () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
+
+  it('POST /api/alerts/webhook com JSON inválido retorna 400 sem stack', async () => {
+    const { app } = setup();
+    const res = await request(app)
+      .post('/api/alerts/webhook')
+      .set('Content-Type', 'application/json')
+      .send('{invalido');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeTypeOf('string');
+  });
 });

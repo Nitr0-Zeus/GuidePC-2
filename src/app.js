@@ -10,5 +10,12 @@ export function createApp({ queries }) {
   app.use(express.json());
   app.use('/api', createApiRouter({ queries }));
   app.use(express.static(path.join(root, 'src', 'web', 'public')));
+  app.use((err, _req, res, _next) => {
+    if (err?.type === 'entity.parse.failed') {
+      return res.status(400).json({ error: 'JSON inválido no corpo da requisição' });
+    }
+    console.error('[api]', err);
+    return res.status(500).json({ error: 'Erro interno' });
+  });
   return app;
 }
