@@ -44,6 +44,20 @@ export async function collectMetrics(si, state, nowMs = Date.now()) {
   }
 
   try {
+    const battery = await si.battery();
+    if (battery?.hasBattery) {
+      if (typeof battery.percent === 'number' && Number.isFinite(battery.percent)) {
+        push('battery.pct', round(battery.percent));
+      }
+      if (typeof battery.isCharging === 'boolean') {
+        push('battery.charging', battery.isCharging ? 1 : 0);
+      }
+    }
+  } catch {
+    /* omitido */
+  }
+
+  try {
     const filesystems = await si.fsSize();
     for (const fs of filesystems) {
       const key = String(fs.mount || fs.fs).replace(/[\\/\s]/g, '_');

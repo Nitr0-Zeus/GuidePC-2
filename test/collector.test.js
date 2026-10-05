@@ -28,6 +28,7 @@ function makeSi() {
       { state: 'TIME_WAIT' },
       { state: 'ESTABLISHED' },
     ],
+    battery: async () => ({ hasBattery: false, percent: 0, isCharging: false }),
   };
 }
 
@@ -104,6 +105,38 @@ describe('collectMetrics', () => {
     rx = 1_000; // contador reiniciou
     const samples = await collectMetrics(si, state, 1_005_000);
     expect(byName(samples)['net.rx.eth0']).toBe(0);
+  });
+});
+
+describe('bateria', () => {
+  it('grava battery.pct e battery.charging quando há bateria', async () => {
+    const si = makeSi();
+    si.battery = async () => ({ hasBattery: true, percent: 65.4, isCharging: true });
+    const m = byName(await collectMetrics(si, {}, 1_000_000));
+    expect(m['battery.pct']).toBe(65.4);
+    expect(m['battery.charging']).toBe(1);
+  });
+
+  it('grava battery.charging = 0 quando descarregando', async () => {
+    const si = makeSi();
+    si.battery = async () => ({ hasBattery: true, percent: 42, isCharging: false });
+    const m = byName(await collectMetrics(si, {}, 1_000_000));
+    expect(m['battery.pct']).toBe(42);
+    expect(m['battery.charging']).toBe(0);
+  });
+
+  it('omite as duas métricas em desktop (sem bateria) e quando a coleta falha', async () => {
+    const semBateria = byName(await collectMetrics(makeSi(), {}, 1_000_000));
+    expect(semBateria['battery.pct']).toBeUndefined();
+    expect(semBateria['battery.charging']).toBeUndefined();
+
+    const si = makeSi();
+    si.battery = async () => {
+      throw new Error('sem sensor');
+    };
+    const falhou = byName(await collectMetrics(si, {}, 1_000_000));
+    expect(falhou['battery.pct']).toBeUndefined();
+    expect(falhou['mem.used']).toBe(50);
   });
 });
 
