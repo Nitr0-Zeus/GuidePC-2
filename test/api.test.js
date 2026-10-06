@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import request from 'supertest';
+import http from 'node:http';
+import { once } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +12,7 @@ import { createApp } from '../src/app.js';
 
 const dirs = [];
 const openDbs = [];
+const servers = [];
 function tempDbPath() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guidepc2-api-'));
   dirs.push(dir);
@@ -21,6 +24,11 @@ function openTemp() {
   return db;
 }
 afterEach(() => {
+  while (servers.length) {
+    const server = servers.pop();
+    server.close();
+    server.closeAllConnections?.();
+  }
   while (openDbs.length) {
     try {
       openDbs.pop().close();
@@ -30,6 +38,25 @@ afterEach(() => {
   }
   while (dirs.length) fs.rmSync(dirs.pop(), { recursive: true, force: true });
 });
+
+function pendente() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+function seedAmostras(db, now, qtd) {
+  const lote = [];
+  for (let i = 0; i < qtd; i += 1) {
+    lote.push({ ts: now - qtd + i, metric: 'cpu.total', value: i });
+  }
+  createWriter(db).insertBatch(lote);
+  return qtd + 4;
+}
 
 function setup(overrides = {}) {
   const db = openTemp();
@@ -112,6 +139,73 @@ describe('API', () => {
     const res = await request(app).get('/api/export.csv?from=100&to=100');
     expect(res.status).toBe(400);
     expect(res.body.error).toBeTypeOf('string');
+  });
+
+  it('GET /api/export.csv concorrentes completam sem disputar a mesma declaração', async () => {
+    const { app, now, db } = setup();
+    const linhas = seedAmostras(db, now, 60000);
+    const url = `/api/export.csv?from=${now - 70000}&to=${now}`;
+    const server = app.listen(0);
+    servers.push(server);
+    await once(server, 'listening');
+    const { port } = server.address();
+
+    const headersA = pendente();
+    const fimA = pendente();
+    const reqA = http.request({ port, path: url }, (res) => {
+      res.pause();
+      let bytes = 0;
+      res.on('data', (chunk) => {
+        bytes += chunk.length;
+      });
+      res.on('end', () => fimA.resolve(bytes));
+      res.on('error', (erro) => fimA.reject(erro));
+      headersA.resolve(res);
+    });
+    reqA.on('error', (erro) => {
+      headersA.reject(erro);
+      fimA.reject(erro);
+    });
+    reqA.end();
+
+    const resA = await headersA.promise;
+    const b = await request(server).get(url);
+    expect(b.status).toBe(200);
+    expect(b.text.startsWith('ts,metric,value')).toBe(true);
+    expect(b.text.trim().split('\n').length).toBe(linhas);
+
+    resA.resume();
+    const bytesA = await fimA.promise;
+    expect(bytesA).toBe(Buffer.byteLength(b.text));
+    reqA.destroy();
+  });
+
+  it('GET /api/export.csv cancelada no meio mantém o endpoint saudável', async () => {
+    const { app, now, db } = setup();
+    const linhas = seedAmostras(db, now, 60000);
+    const url = `/api/export.csv?from=${now - 70000}&to=${now}`;
+    const server = app.listen(0);
+    servers.push(server);
+    await once(server, 'listening');
+    const { port } = server.address();
+
+    const headersA = pendente();
+    const reqA = http.request({ port, path: url }, (res) => {
+      res.pause();
+      headersA.resolve(res);
+    });
+    reqA.on('error', () => {});
+    reqA.end();
+    await headersA.promise;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    reqA.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const depois = await request(server).get(url);
+    expect(depois.status).toBe(200);
+    expect(depois.text.startsWith('ts,metric,value')).toBe(true);
+    expect(depois.text.trim().split('\n').length).toBe(linhas);
   });
 
   it('POST /api/alerts/webhook grava os alertas do payload', async () => {

@@ -42,8 +42,10 @@ nuvem e sem agentes remotos: o dado nunca sai da máquina.
   CSV.
 - Tema claro/escuro com preferência persistida.
 - `GET /api/config/thresholds` como fonte dos limiares da página.
-- API somente leitura (`/api/health`, `/api/latest`, `/api/metrics/:metric`) +
-  webhook de alertas.
+- API com leitura via `/api/health`, `/api/latest`, `/api/metrics/:metric` e as
+  rotas novas (hardware, processes, alerts, export.csv, config/thresholds,
+  health/grafana); a única escrita é o webhook de alertas, que grava na tabela
+  `alerts` via `writer.js` (nenhuma rota GET escreve).
 - 3 alertas provisionados no Grafana: CPU > 90%, Memória > 90%, Disco > 85%.
 - Idioma da interface: PT-BR. Nomes técnicos de métrica ficam visíveis apenas
   como referência secundária.

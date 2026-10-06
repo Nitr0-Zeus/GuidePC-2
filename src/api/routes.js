@@ -71,12 +71,37 @@ export function createApiRouter({ queries, writer, thresholdsPath, hardware, pro
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="guidepc2-metricas.csv"');
-    res.write('ts,metric,value\n');
-    for (const row of queries.iterateRange(from, to)) {
-      const line = `${row.ts},${csvCell(row.metric)},${row.value}\n`;
-      if (!res.write(line)) await once(res, 'drain');
+    const iterator = queries.iterateRange(from, to);
+    let aborted = false;
+    let notifyAbort = () => {};
+    const abortado = new Promise((resolve) => {
+      notifyAbort = resolve;
+    });
+    const onClose = () => {
+      aborted = true;
+      notifyAbort();
+    };
+    const clientGone = () =>
+      aborted ||
+      res.destroyed ||
+      res.writableEnded ||
+      req.destroyed ||
+      res.socket?.destroyed === true;
+    res.on('close', onClose);
+    try {
+      res.write('ts,metric,value\n');
+      for (const row of iterator) {
+        if (clientGone()) break;
+        const line = `${row.ts},${csvCell(row.metric)},${row.value}\n`;
+        if (!res.write(line) && !clientGone()) {
+          await Promise.race([once(res, 'drain'), abortado]);
+        }
+      }
+    } finally {
+      res.off('close', onClose);
+      iterator.return?.();
     }
-    res.end();
+    if (!res.destroyed && !res.writableEnded) res.end();
     return undefined;
   });
 

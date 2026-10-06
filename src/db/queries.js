@@ -1,3 +1,6 @@
+const EXPORT_SQL =
+  'SELECT ts, metric, value FROM samples WHERE ts >= ? AND ts <= ? ORDER BY ts ASC';
+
 export function createQueries(db) {
   const latestStmt = db.prepare(
     'SELECT metric, value, MAX(ts) AS ts FROM samples WHERE ts >= ? GROUP BY metric'
@@ -11,9 +14,6 @@ export function createQueries(db) {
   );
   const listAlertsStmt = db.prepare(
     'SELECT ts, alertname, state, value FROM alerts ORDER BY ts DESC, id DESC LIMIT ?'
-  );
-  const exportStmt = db.prepare(
-    'SELECT ts, metric, value FROM samples WHERE ts >= ? AND ts <= ? ORDER BY ts ASC'
   );
 
   return {
@@ -40,7 +40,7 @@ export function createQueries(db) {
       return listAlertsStmt.all(limit);
     },
     iterateRange(fromSec, toSec) {
-      return exportStmt.iterate(fromSec, toSec);
+      return db.prepare(EXPORT_SQL).iterate(fromSec, toSec);
     },
   };
 }

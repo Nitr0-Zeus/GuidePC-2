@@ -18,7 +18,7 @@ export function parseAlerts(body, nowMs = Date.now()) {
       alert.labels?.alertname ?? body?.commonLabels?.alertname ?? 'Alerta sem nome';
     const state = alert.status === 'resolved' ? 'resolved' : 'firing';
     const parsed = Date.parse(alert.startsAt);
-    const ts = Number.isFinite(parsed) ? Math.floor(parsed / 1000) : nowSec;
+    const ts = Number.isFinite(parsed) ? Math.min(Math.floor(parsed / 1000), nowSec) : nowSec;
     rows.push({ ts, alertname: String(alertname), state, value: extractValue(alert) });
   }
   return rows.length > 0 ? rows : null;

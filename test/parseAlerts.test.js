@@ -46,4 +46,13 @@ describe('parseAlerts', () => {
     expect(parseAlerts(null)).toBeNull();
     expect(parseAlerts({ alerts: [null, 'lixo'] })).toBeNull();
   });
+
+  it('limita startsAt futuro ao nowMs para a linha não virar permanente', () => {
+    const nowMs = 1_000_000_000_000;
+    const rows = parseAlerts(
+      { alerts: [{ status: 'firing', startsAt: '2999-01-01T00:00:00.000Z', value: 7 }] },
+      nowMs
+    );
+    expect(rows[0].ts).toBe(Math.floor(nowMs / 1000));
+  });
 });

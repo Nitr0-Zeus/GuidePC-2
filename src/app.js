@@ -11,6 +11,9 @@ export function createApp({ queries, writer, thresholdsPath, hardware, processes
   app.use('/api', createApiRouter({ queries, writer, thresholdsPath, hardware, processes, grafanaHealth }));
   app.use(express.static(path.join(root, 'src', 'web', 'public')));
   app.use((err, _req, res, _next) => {
+    if (res.headersSent) {
+      return res.destroy();
+    }
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'JSON inválido no corpo da requisição' });
     }
