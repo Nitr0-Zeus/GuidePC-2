@@ -5,8 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <title>GuidePC 2 — Resumo do sistema</title>
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('guidepc2-theme'); } catch (e) { t = null; }
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <style>
     :root {
+      color-scheme: light;
+      --bg: #f4f6f9;
+      --panel: #ffffff;
+      --line: #dfe4ec;
+      --text: #17202b;
+      --muted: #4a5462;
+      --faint: #5b6673;
+      --ok: #12734a;
+      --warn: #8a5a00;
+      --crit: #c92a2a;
+      --accent: #14548c;
+      --accent-hover: #0f426f;
+      --meter-track: #e6eaf0;
+      --flash: rgba(20, 84, 140, 0.10);
+      --verdict-crit: #b3261e;
+      --verdict-warn: #7a5200;
+      --sb-thumb: #c3cad6;
+      --sb-thumb-hover: #a7b1c0;
+      --selection: rgba(20, 84, 140, 0.25);
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-theme='dark'] {
       color-scheme: dark;
       --bg: #0e1116;
       --panel: #141a22;
@@ -18,8 +51,14 @@
       --warn: #e8b84a;
       --crit: #ef6b6b;
       --accent: #9cc7f0;
+      --accent-hover: #c3ddfa;
       --meter-track: #222a35;
       --flash: rgba(156, 199, 240, 0.14);
+      --verdict-crit: #ffb4b4;
+      --verdict-warn: #f5d993;
+      --sb-thumb: #2c3542;
+      --sb-thumb-hover: #3a4553;
+      --selection: rgba(156, 199, 240, 0.28);
       --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -37,15 +76,15 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    ::selection { background: rgba(156, 199, 240, 0.28); color: var(--text); }
+    ::selection { background: var(--selection); color: var(--text); }
 
     ::-webkit-scrollbar { width: 10px; height: 10px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: #2c3542; border-radius: 6px; border: 2px solid var(--bg); }
-    ::-webkit-scrollbar-thumb:hover { background: #3a4553; }
+    ::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 6px; border: 2px solid var(--bg); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); }
 
     a { color: var(--accent); text-underline-offset: 3px; }
-    a:hover { color: #c3ddfa; }
+    a:hover { color: var(--accent-hover); }
 
     :focus-visible {
       outline: 2px solid var(--accent);
@@ -99,6 +138,29 @@
     .freshness.is-warn .dot { background: var(--warn); box-shadow: 0 0 0 3px rgba(232, 184, 74, 0.18); }
     .freshness.is-crit .dot { background: var(--crit); box-shadow: 0 0 0 3px rgba(239, 107, 107, 0.18); }
     .freshness.is-error .dot { background: var(--crit); }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+    }
+    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+    .theme-toggle .icon-moon { display: none; }
+    [data-theme='dark'] .theme-toggle .icon-sun { display: none; }
+    [data-theme='dark'] .theme-toggle .icon-moon { display: block; }
 
     /* Veredito */
     .verdict {
@@ -119,8 +181,8 @@
       font-size: 1.02rem;
       max-width: 62ch;
     }
-    .verdict.is-crit h2 { color: #ffb4b4; }
-    .verdict.is-warn h2 { color: #f5d993; }
+    .verdict.is-crit h2 { color: var(--verdict-crit); }
+    .verdict.is-warn h2 { color: var(--verdict-warn); }
 
     /* Vitais */
     .vitals {
@@ -315,9 +377,20 @@
         <h1>GuidePC 2</h1>
         <span class="machine" id="machine">resumo do sistema</span>
       </div>
-      <div class="freshness" id="freshness" role="status">
-        <span class="dot" aria-hidden="true"></span>
-        <span id="freshness-text">Conectando ao coletor…</span>
+      <div class="topbar-right">
+        <div class="freshness" id="freshness" role="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="freshness-text">Conectando ao coletor…</span>
+        </div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Alternar entre tema claro e escuro">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -363,6 +436,27 @@
     const state = { lastFetch: null, timer: null, ageTimer: null, errored: false };
 
     const el = (id) => document.getElementById(id);
+
+    const themeToggle = el('theme-toggle');
+    function syncThemeButton() {
+      const dark = document.documentElement.dataset.theme === 'dark';
+      themeToggle.setAttribute('aria-pressed', String(dark));
+      themeToggle.setAttribute(
+        'aria-label',
+        dark ? 'Tema escuro ativo. Clique para o tema claro' : 'Tema claro ativo. Clique para o tema escuro'
+      );
+    }
+    themeToggle.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      try {
+        localStorage.setItem('guidepc2-theme', next);
+      } catch (e) {
+        /* armazenamento indisponível — tema vale só nesta aba */
+      }
+      syncThemeButton();
+    });
+    syncThemeButton();
 
     function fmt(value) {
       return numberFmt.format(value);
