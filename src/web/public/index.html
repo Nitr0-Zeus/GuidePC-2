@@ -256,6 +256,9 @@
       height: 28px;
       margin-top: 12px;
     }
+    .vital .spark[hidden] {
+      display: none;
+    }
     .vital .spark path {
       fill: none;
       stroke: var(--accent);
@@ -586,7 +589,7 @@
                 const svg = card.querySelector('.spark');
                 if (svg) {
                   svg.querySelector('path').setAttribute('d', d);
-                  svg.hidden = false;
+                  svg.removeAttribute('hidden');
                 }
               }
             }
