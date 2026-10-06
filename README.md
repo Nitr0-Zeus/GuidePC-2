@@ -116,17 +116,30 @@ CREATE TABLE IF NOT EXISTS samples (
 );
 CREATE INDEX IF NOT EXISTS idx_samples_ts        ON samples(ts);          -- filtro de tempo puro + retenção
 CREATE INDEX IF NOT EXISTS idx_samples_metric_ts ON samples(metric, ts);  -- consultas dos painéis
+
+CREATE TABLE IF NOT EXISTS alerts (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts        INTEGER NOT NULL,   -- epoch em SEGUNDOS (startsAt do alerta, limitado ao agora)
+  alertname TEXT    NOT NULL,
+  state     TEXT    NOT NULL,   -- 'firing' | 'resolved'
+  value     REAL                -- valor que disparou (NULL se o payload não trouxer)
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts(ts);                  -- listagem DESC + retenção
 ```
 
 - `writer.js` — **o único ponto de escrita do projeto.** `insertBatch(rows)`
   roda tudo numa transação; `purgeOlderThan(cutoff)` apaga amostras antigas e
-  dispara `incremental_vacuum` quando apaga algo.
+  dispara `incremental_vacuum` quando apaga algo. Alertas seguem o mesmo
+  padrão via `insertAlerts(rows)` e `purgeAlertsOlderThan(cutoff)`.
 - `queries.js` — leituras para a API: `latest()` (último valor por métrica
   numa janela), `range()` (série de uma métrica no período, com limite
-  superior **inclusivo**), `maxTs()` e `countRecent()`.
+  superior **inclusivo**), `iterateRange()` (streaming de todas as métricas
+  do período, para o CSV), `listAlerts(limit)` (alertas por `ts DESC`),
+  `maxTs()` e `countRecent()`.
 
 **Retenção:** uma vez por dia o `server.js` calcula
-`agora − 7 dias` e chama `purgeOlderThan`. Amostras de8 dias somem sozinhas;
+`agora − 7 dias` e chama `purgeOlderThan` (amostras) **e**
+`purgeAlertsOlderThan` (alertas). Amostras de 8 dias somem sozinhas;
 o banco fica estável em ~tens de MB.
 
 ### 3.3 API (`src/api/routes.js`)
@@ -148,9 +161,17 @@ referência secundária em fonte mono). Fluxo:
    ("Atenção: memória está no limite (92%).") — limiares vêm de
    `GET /api/config/thresholds` (fallback: defaults embutidos).
 3. Renderiza 4 **vitais** (Processador, Memória, Disco pior volume, Rede) com
-   medidor colorido, depois **núcleos da CPU**, **volumes de disco** e
-   **interfaces de rede** em detalhes.
-4. Estados de falha: "Não consegui falar com o coletor" + dica de `npm start`.
+   medidor colorido e **sparkline de 1 hora** (dados de
+   `GET /api/metrics/:metric`, refresh 60s; sem histórico = oculto), depois
+   **núcleos da CPU**, **volumes de disco** e **interfaces de rede** em
+   detalhes.
+4. Seções empilhadas abaixo: **Meu computador** (`/api/hardware`, 10 min),
+   **Bateria** (só se `battery.pct` existir), **O que está usando seu PC**
+   (`/api/processes`, 10s) e **Histórico de alertas** (`/api/alerts`, 30s).
+   Rodapé com chip de saúde do Grafana (30s), link de CSV e tema
+   claro/escuro (toggle, salvo no `localStorage`).
+5. Estados de falha: "Não consegui falar com o coletor" + dica de `npm start`;
+   cada seção nova tem mensagem própria em caso de falha.
 
 ### 3.5 Grafana provisionado (`grafana/provisioning/`)
 
@@ -163,7 +184,9 @@ Tudo declarado em arquivo — nada configurado à mão na UI:
   dashboards chamada "GuidePC 2", com **polling de 15s** (o file-watch do
   Grafana não recebe eventos de bind-mount no Windows/Docker Desktop).
 - **`dashboards/*.json`** — os 4 dashboards (CPU, Memória, Disco, Rede),
-  refresh 5s. Cada painel executa SQL direto na tabela `samples`:
+  refresh 5s. O dashboard **Memória** tem 10 painéis (inclui **Bateria**,
+  **Carregando** e a série **Bateria (%)** — em desktops mostram
+  "Não disponível"). Cada painel executa SQL direto na tabela `samples`:
 
 ```sql
 SELECT ts, value FROM samples
@@ -201,7 +224,7 @@ banco com elegância.
 
 ## 4. Métricas coletadas
 
-~27 a39 métricas por ciclo nesta máquina (16 núcleos, 2 volumes, 6
+~27 a 39 métricas por ciclo nesta máquina (16 núcleos, 2 volumes, 6
 interfaces; +2 com bateria em notebooks):
 
 | Dashboard | Métrica | Unidade | Origem | Windows |
@@ -238,7 +261,7 @@ GuidePC2/
 ├── src/
 │   ├── server.js                # bootstrap: banco + retenção + coletor + Express
 │   ├── app.js                   # factory do app (testável)
-│   ├── config.js                # PORT, HOST, INTERVAL_MS, RETENTION_DAYS, DB_PATH, THRESHOLDS_PATH (env)
+│   ├── config.js                # PORT, HOST, INTERVAL_MS, RETENTION_DAYS, DB_PATH, THRESHOLDS_PATH, GRAFANA_HEALTH_URL (env)
 │   ├── collector/
 │   │   ├── index.js             # scheduler de 5s com guarda de sobreposição
 │   │   └── metrics.js           # definições e normalização das métricas
@@ -258,10 +281,12 @@ GuidePC2/
 │   ├── datasources/sqlite.yml
 │   ├── dashboards/provider.yml + {cpu,memory,disk,network}.json
 │   └── alerting/{alerts,notifications}.yml
-├── test/                        # vitest: smoke, db, collector, api, services... (56 testes)
+├── test/                        # vitest: smoke, db, collector, api, services, config, thresholds, parseAlerts (59 testes)
 └── docs/superpowers/
-    ├── specs/2026-10-05-guidepc2-design.md   # spec de design
-    └── plans/2026-10-05-guidepc2.md          # plano de implementação (8 tasks)
+    ├── specs/2026-10-05-guidepc2-design.md        # spec de design (v1)
+    ├── specs/2026-10-05-pacotes-ab-design.md      # spec dos Pacotes A+B
+    ├── plans/2026-10-05-guidepc2.md               # plano de implementação (8 tasks)
+    └── plans/2026-10-05-pacotes-ab.md             # plano dos Pacotes A+B (16 tasks)
 ```
 
 ## 6. Como rodar
@@ -328,7 +353,7 @@ Ao mudar um lado, atualize o outro manualmente.
 ## 8. Testes e lint
 
 ```powershell
-npm test        # 56 testes: smoke, camada de dados, coletor (mock), API (supertest), thresholds, serviços
+npm test        # 59 testes: smoke, camada de dados, coletor (mock), API (supertest), thresholds, serviços, config, parseAlerts
 npm run lint    # ESLint 10 flat config — zero erros
 ```
 
@@ -452,8 +477,9 @@ vermelho = no limite.
 ## 11.4 Alertas — o que fazer quando um disparar
 
 Os alertas ficam em **Alerting → Alert rules** (pasta "GuidePC 2"). Quando
-disparam, chegam ao webhook e aparecem no log do terminal do Node como
-`[alerta Grafana] {...}`.
+disparam, chegam ao webhook: aparecem no log do terminal do Node como
+`[alerta Grafana] {...}`, **gravam uma linha na tabela `alerts`** e sobem
+para a seção **Histórico de alertas** da página resumo (7 dias).
 
 | Alerta | Limite | Antes de agir, verifique | Ação sugerida |
 |---|---|---|---|
@@ -510,7 +536,8 @@ existir** — se aparecer alerta sem motivo, veja [11.5](#115-solução-de-probl
 
 ---
 
-**Documentação de design:** a spec está em
-`docs/superpowers/specs/2026-10-05-guidepc2-design.md` e o plano de
-implementação (8 tasks com TDD) em `docs/superpowers/plans/2026-10-05-guidepc2.md`.
-A verdade do produto está em `PRODUCT.md`.
+**Documentação de design:** as specs estão em
+`docs/superpowers/specs/2026-10-05-guidepc2-design.md` (v1) e
+`docs/superpowers/specs/2026-10-05-pacotes-ab-design.md` (Pacotes A+B); os
+planos em `docs/superpowers/plans/` (8 tasks na v1, 16 nos Pacotes A+B,
+ambos com TDD). A verdade do produto está em `PRODUCT.md`.
