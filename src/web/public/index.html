@@ -417,6 +417,32 @@
       color: var(--faint);
     }
     .footer .links { display: flex; gap: 18px; flex-wrap: wrap; }
+    .footer-status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .grafana-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .grafana-chip::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .grafana-chip.is-online { color: var(--ok); }
+    .grafana-chip.is-offline { color: var(--warn); }
 
     .sr-only {
       position: absolute;
@@ -535,10 +561,14 @@
     </section>
 
     <footer class="footer">
-      <span>Coleta a cada 5 segundos · histórico de 7 dias</span>
+      <div class="footer-status">
+        <span>Coleta a cada 5 segundos · histórico de 7 dias</span>
+        <span class="grafana-chip" id="grafana-chip" role="status">Verificando gráficos…</span>
+      </div>
       <nav class="links">
         <a href="http://localhost:3000/d/guidepc2-cpu" target="_blank" rel="noopener">Gráficos detalhados (Grafana)</a>
         <a href="/api/latest">Ver dados crus (API)</a>
+        <a href="/api/export.csv" id="csv-link" download>Baixar dados (CSV)</a>
       </nav>
     </footer>
   </div>
@@ -561,6 +591,7 @@
       procTimer: null,
       alertsTimer: null,
       hwTimer: null,
+      grafanaTimer: null,
       errored: false,
       sparks: {},
       lastItems: [],
@@ -996,10 +1027,60 @@
       renderFreshness();
     }
 
-    refresh().then(() => refreshSparks());
+    async function loadThresholds() {
+      try {
+        const res = await fetch('/api/config/thresholds', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const t = await res.json();
+        const apply = (key, entry) => {
+          if (entry && Number.isFinite(entry.warn) && Number.isFinite(entry.crit)) {
+            THRESHOLDS[key].warn = entry.warn;
+            THRESHOLDS[key].crit = entry.crit;
+          }
+        };
+        apply('cpu.total', t.cpu);
+        apply('mem.used', t.mem);
+        apply('disk.usage', t.disk);
+      } catch {
+        /* mantém os defaults embutidos */
+      }
+    }
+
+    const GRAFANA_MS = 30000;
+
+    function refreshCsvLink() {
+      const now = Math.floor(Date.now() / 1000);
+      el('csv-link').href = `/api/export.csv?from=${now - 7 * 86400}&to=${now + 1}`;
+    }
+
+    async function refreshGrafanaChip() {
+      const chip = el('grafana-chip');
+      try {
+        const res = await fetch('/api/health/grafana', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.online) {
+          chip.textContent = 'Gráficos: online';
+          chip.className = 'grafana-chip is-online';
+        } else {
+          chip.textContent = 'Gráficos offline — rode "docker compose up -d"';
+          chip.className = 'grafana-chip is-offline';
+        }
+      } catch {
+        chip.textContent = 'Gráficos: sem resposta';
+        chip.className = 'grafana-chip is-offline';
+      }
+      refreshCsvLink();
+    }
+
+    loadThresholds().finally(() => {
+      refresh().then(() => refreshSparks());
+    });
     state.timer = setInterval(refresh, POLL_MS);
     state.ageTimer = setInterval(renderFreshness, 1000);
     state.sparkTimer = setInterval(refreshSparks, SPARK_MS);
+    state.grafanaTimer = setInterval(refreshGrafanaChip, GRAFANA_MS);
+    refreshGrafanaChip();
     refreshProcesses();
     refreshAlerts();
     refreshHardware();
