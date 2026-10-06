@@ -339,6 +339,72 @@
       white-space: nowrap;
     }
 
+    .info-panel {
+      padding: 26px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .info-panel h3 {
+      margin: 0 0 4px;
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+    .info-panel .sub {
+      margin: 0 0 16px;
+      color: var(--faint);
+      font-size: 0.8rem;
+    }
+    .info-panel .empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .hw-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 14px 24px;
+    }
+    .hw-item .k {
+      color: var(--faint);
+      font-size: 0.75rem;
+      margin-bottom: 2px;
+    }
+    .hw-item .v {
+      color: var(--text);
+      font-size: 0.88rem;
+      word-break: break-word;
+    }
+    .battery-row { max-width: 420px; }
+    .battery-row .reading {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 3vw, 2rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .proc-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      min-width: 0;
+    }
+    .proc-col h4 {
+      margin: 0 0 12px;
+      font-size: 0.85rem;
+      font-weight: 650;
+      color: var(--muted);
+    }
+    .alert-badge {
+      font-size: 0.72rem;
+      font-weight: 650;
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .alert-badge.is-firing { background: rgba(239, 107, 107, 0.16); color: var(--crit); }
+    .alert-badge.is-resolved { background: rgba(94, 203, 139, 0.16); color: var(--ok); }
+    @media (max-width: 860px) {
+      .proc-columns { grid-template-columns: 1fr; }
+    }
+
     /* Rodapé */
     .footer {
       display: flex;
@@ -430,6 +496,44 @@
       </div>
     </section>
 
+    <section class="info-panel" id="hardware-panel" hidden>
+      <h3>Meu computador</h3>
+      <p class="sub">Equipamento identificado — atualiza a cada 10 minutos</p>
+      <div class="hw-grid" id="hw-grid"></div>
+    </section>
+
+    <section class="info-panel" id="battery-panel" hidden>
+      <h3>Bateria</h3>
+      <p class="sub" id="battery-sub">Situação da bateria agora</p>
+      <div class="battery-row">
+        <p class="reading" id="battery-reading">—</p>
+        <div class="meter" role="presentation">
+          <span class="fill" id="battery-fill"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-panel" id="processes-panel" hidden>
+      <h3>O que está usando seu PC</h3>
+      <p class="sub">Processos que mais consomem agora — atualiza a cada 10 segundos</p>
+      <div class="proc-columns">
+        <div class="proc-col">
+          <h4>Processador</h4>
+          <div class="rows" id="proc-cpu"></div>
+        </div>
+        <div class="proc-col">
+          <h4>Memória</h4>
+          <div class="rows" id="proc-mem"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-panel" id="alerts-panel" hidden>
+      <h3>Histórico de alertas</h3>
+      <p class="sub">Últimos alertas do sistema — até 7 dias de histórico</p>
+      <div class="rows" id="alerts-rows"></div>
+    </section>
+
     <footer class="footer">
       <span>Coleta a cada 5 segundos · histórico de 7 dias</span>
       <nav class="links">
@@ -454,6 +558,9 @@
       timer: null,
       ageTimer: null,
       sparkTimer: null,
+      procTimer: null,
+      alertsTimer: null,
+      hwTimer: null,
       errored: false,
       sparks: {},
       lastItems: [],
@@ -688,6 +795,159 @@
       el('side-rows').innerHTML = rows.join('');
     }
 
+    function escapeHtml(s) {
+      return String(s).replace(
+        /[&<>"']/g,
+        (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+      );
+    }
+
+    function fmtBytes(bytes) {
+      if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) return null;
+      const gb = bytes / 1024 ** 3;
+      if (gb >= 1024) return fmt(gb / 1024) + ' TB';
+      if (gb >= 0.1) return fmt(gb) + ' GB';
+      return fmt(bytes / 1024 ** 2) + ' MB';
+    }
+
+    const PROC_MS = 10000;
+    const ALERTS_MS = 30000;
+    const HW_MS = 600000;
+
+    function hwItem(label, value) {
+      if (value === null || value === undefined || value === '') return '';
+      return `<div class="hw-item"><div class="k">${escapeHtml(label)}</div><div class="v">${escapeHtml(value)}</div></div>`;
+    }
+
+    async function refreshHardware() {
+      try {
+        const res = await fetch('/api/hardware', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const hw = await res.json();
+        const items = [];
+        if (hw.system) {
+          items.push(hwItem('Fabricante', hw.system.manufacturer));
+          items.push(hwItem('Modelo', hw.system.model));
+          items.push(hwItem('Versão', hw.system.version));
+        }
+        if (hw.cpu) {
+          items.push(hwItem('Processador', hw.cpu.brand));
+          items.push(hwItem('Núcleos', `${hw.cpu.physicalCores} físicos / ${hw.cpu.cores} lógicos`));
+          items.push(hwItem('Frequência máxima', hw.cpu.speedMax ? `${hw.cpu.speedMax} GHz` : null));
+        }
+        if (hw.memory) {
+          items.push(hwItem('Memória total', fmtBytes(hw.memory.total)));
+          hw.memory.modules.forEach((m, i) => {
+            const detalhes = [fmtBytes(m.size), m.type, m.clockSpeed ? `${m.clockSpeed} MHz` : null]
+              .filter(Boolean)
+              .join(' · ');
+            items.push(hwItem(`Módulo ${m.bank || i + 1}`, detalhes));
+          });
+        }
+        if (hw.bios) {
+          items.push(hwItem('BIOS', [hw.bios.vendor, hw.bios.version].filter(Boolean).join(' ')));
+          items.push(hwItem('BIOS lançada em', hw.bios.releaseDate));
+        }
+        if (hw.baseboard) {
+          items.push(hwItem('Placa-mãe', [hw.baseboard.manufacturer, hw.baseboard.model].filter(Boolean).join(' ')));
+        }
+        hw.disks.forEach((d) => {
+          const detalhes = [fmtBytes(d.size), d.type, d.interfaceType].filter(Boolean).join(' · ');
+          items.push(hwItem(d.name || 'Disco', detalhes));
+        });
+        hw.graphics.forEach((g) => {
+          const nome = [g.vendor, g.model].filter(Boolean).join(' ');
+          items.push(hwItem('Placa de vídeo', nome + (g.vram ? ` · ${g.vram} MB` : '')));
+        });
+        const html = items.filter(Boolean).join('');
+        el('hw-grid').innerHTML =
+          html || '<div class="hw-item"><div class="v">Não consegui identificar as peças deste computador.</div></div>';
+        el('hardware-panel').hidden = false;
+      } catch {
+        el('hw-grid').innerHTML =
+          '<div class="hw-item"><div class="v">Não consegui ler o inventário do hardware agora.</div></div>';
+        el('hardware-panel').hidden = false;
+      }
+    }
+
+    function renderBattery(values) {
+      const panel = el('battery-panel');
+      const pct = values['battery.pct'];
+      if (typeof pct !== 'number') {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      const charging = values['battery.charging'] === 1;
+      el('battery-reading').textContent = `${fmt(pct)}%`;
+      el('battery-sub').textContent = charging
+        ? 'Carregando agora — ligada na tomada'
+        : 'Sem carregador — rodando na bateria';
+      const fill = el('battery-fill');
+      fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+      fill.className = 'fill' + (pct <= 15 ? ' is-crit' : pct <= 30 ? ' is-warn' : '');
+    }
+
+    function procRow(p, kind) {
+      const value = kind === 'cpu' ? p.cpu : p.mem;
+      const lvl = value >= 90 ? ' is-crit' : value >= 70 ? ' is-warn' : '';
+      return `
+        <div class="datarow">
+          <div class="row"><span class="name">${escapeHtml(p.name)}</span><span>${fmt(value)}%</span></div>
+          <div class="meter"><span class="fill${lvl}" style="width:${Math.min(100, Math.max(0, value))}%"></span></div>
+          <div class="row"><span class="detail">PID ${p.pid}</span><span class="detail">${escapeHtml(p.user || '—')}</span></div>
+        </div>`;
+    }
+
+    async function refreshProcesses() {
+      try {
+        const res = await fetch('/api/processes', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        el('proc-cpu').innerHTML =
+          data.cpuTop.map((p) => procRow(p, 'cpu')).join('') ||
+          '<p class="empty">Nenhum processo para mostrar.</p>';
+        el('proc-mem').innerHTML =
+          data.memTop.map((p) => procRow(p, 'mem')).join('') ||
+          '<p class="empty">Nenhum processo para mostrar.</p>';
+        el('processes-panel').hidden = false;
+      } catch {
+        el('proc-cpu').innerHTML = '<p class="empty">Não consegui listar os processos agora.</p>';
+        el('processes-panel').hidden = false;
+      }
+    }
+
+    const alertDateFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+    async function refreshAlerts() {
+      try {
+        const res = await fetch('/api/alerts?limit=10', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const rows = (data.alerts ?? []).map((a) => {
+          const firing = a.state === 'firing';
+          return `
+            <div class="datarow">
+              <div class="row">
+                <span class="name">${escapeHtml(a.alertname)}</span>
+                <span class="alert-badge ${firing ? 'is-firing' : 'is-resolved'}">${firing ? 'Disparado' : 'Resolvido'}</span>
+              </div>
+              <div class="row">
+                <span class="detail">${alertDateFmt.format(new Date(a.ts * 1000))}</span>
+                <span class="detail">${typeof a.value === 'number' ? fmt(a.value) : ''}</span>
+              </div>
+            </div>`;
+        });
+        el('alerts-rows').innerHTML =
+          rows.join('') ||
+          '<p class="empty">Nenhum alerta nos últimos 7 dias. Tudo tranquilo por aqui.</p>';
+        el('alerts-panel').hidden = false;
+      } catch {
+        el('alerts-rows').innerHTML = '<p class="empty">Não consegui carregar o histórico de alertas agora.</p>';
+        el('alerts-panel').hidden = false;
+      }
+    }
+
     function renderFreshness() {
       const box = el('freshness');
       const text = el('freshness-text');
@@ -722,6 +982,7 @@
         renderVitals(items, prev);
         renderCores(values);
         renderSide(values);
+        renderBattery(values);
         state.lastItems = items;
         state.overall = worstOf(items.map((i) => i.level));
         state.prevValues = Object.fromEntries(items.map((i) => [i.key, i.value]));
@@ -739,6 +1000,12 @@
     state.timer = setInterval(refresh, POLL_MS);
     state.ageTimer = setInterval(renderFreshness, 1000);
     state.sparkTimer = setInterval(refreshSparks, SPARK_MS);
+    refreshProcesses();
+    refreshAlerts();
+    refreshHardware();
+    state.procTimer = setInterval(refreshProcesses, PROC_MS);
+    state.alertsTimer = setInterval(refreshAlerts, ALERTS_MS);
+    state.hwTimer = setInterval(refreshHardware, HW_MS);
   </script>
 </body>
 </html>
