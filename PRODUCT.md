@@ -37,6 +37,11 @@ nuvem e sem agentes remotos: o dado nunca sai da máquina.
 - 4 dashboards no Grafana (CPU, Memória, Disco, Rede) com ~12 métricas,
   provisionados por arquivo (uid `guidepc2-*`).
 - Página resumo leve no Express com polling de 5s para o público leigo.
+- Seções da página: inventário de hardware, bateria (notebooks), top 10
+  processos, histórico de alertas (7 dias), chip de saúde do Grafana, export
+  CSV.
+- Tema claro/escuro com preferência persistida.
+- `GET /api/config/thresholds` como fonte dos limiares da página.
 - API somente leitura (`/api/health`, `/api/latest`, `/api/metrics/:metric`) +
   webhook de alertas.
 - 3 alertas provisionados no Grafana: CPU > 90%, Memória > 90%, Disco > 85%.

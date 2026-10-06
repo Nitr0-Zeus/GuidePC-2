@@ -1,7 +1,7 @@
 # GuidePC 2 — Pacotes A + B: Quick wins e utilidade
 
 Data: 2026-10-05
-Status: aprovado pelo usuário (design em chat; escopo A+B)
+Status: implementado (Pacotes A+B) — ver plano docs/superpowers/plans/2026-10-05-pacotes-ab.md
 Base: auditoria comparativa contra `Nitr0-Zeus/GuidePC` v4.0 (Java/OSHI) +
 spec original `2026-10-05-guidepc2-design.md`.
 

@@ -65,7 +65,7 @@ subir antes do Grafana.**
 | Tecnologia | Versão | Papel | Por que |
 |---|---|---|---|
 | **Node.js** | ≥ 20 (testado em 22.18) | Runtime do coletor e da API | Ecossistema JS completo; roda como processo único de longa duração |
-| **Express** | 5.2.1 | Servidor HTTP | Minimalista; serve a API somente-leitura e a página resumo (HTML estático) |
+| **Express** | 5.2.1 | Servidor HTTP | Minimalista; serve a API (leitura + webhook de alertas) e a página resumo (HTML estático) |
 | **systeminformation** | 5.33.15 | Coleta de métricas de hardware/SO | Sem dependências nativas, multiplataforma, cobre CPU, memória, disco e rede |
 | **better-sqlite3** | 13.0.3 | Banco SQLite | API síncrona (sem callback hell nas gravações), binários pré-compilados no Windows, transações embutidas |
 | **SQLite (modo WAL)** | embutido | Persistência | Write-Ahead Logging permite leitor (Grafana) e escritor (Node) simultâneos sem bloqueio |
@@ -131,8 +131,9 @@ o banco fica estável em ~tens de MB.
 
 ### 3.3 API (`src/api/routes.js`)
 
-Somente leitura (a única rota POST é o receiver de alertas, que apenas loga o
-payload — não toca no banco). Detalhes em [Referência da API](#9-referência-da-api).
+Só escreve pelo webhook de alertas (que grava na tabela `alerts` via
+`src/db/writer.js`); nenhuma rota GET escreve no banco. Detalhes em
+[Referência da API](#9-referência-da-api).
 
 ### 3.4 Página resumo (`src/web/public/index.html`)
 
@@ -144,8 +145,8 @@ referência secundária em fonte mono). Fluxo:
    ("Atualizado há Ns") com um ponto colorido.
 2. Monta o **veredito** em frase: verde ("Seu PC está funcionando bem."),
    âmbar ("Memória: uso um pouco alto (88,8%).") ou vermelho
-   ("Atenção: memória está no limite (92%).") — lógica e thresholds em
-   `THRESHOLDS` no próprio arquivo.
+   ("Atenção: memória está no limite (92%).") — limiares vêm de
+   `GET /api/config/thresholds` (fallback: defaults embutidos).
 3. Renderiza 4 **vitais** (Processador, Memória, Disco pior volume, Rede) com
    medidor colorido, depois **núcleos da CPU**, **volumes de disco** e
    **interfaces de rede** em detalhes.
@@ -200,7 +201,8 @@ banco com elegância.
 
 ## 4. Métricas coletadas
 
-~27 a39 métricas por ciclo nesta máquina (16 núcleos, 2 volumes, 6 interfaces):
+~27 a39 métricas por ciclo nesta máquina (16 núcleos, 2 volumes, 6
+interfaces; +2 com bateria em notebooks):
 
 | Dashboard | Métrica | Unidade | Origem | Windows |
 |---|---|---|---|---|
@@ -212,6 +214,8 @@ banco com elegância.
 | Memória | `mem.available` | GB | `mem().available` | ✅ |
 | Memória | `mem.swap` | % | `swapused/swaptotal` | ✅ |
 | Memória | `mem.cached` | GB | `mem().buffcache` | ✅ |
+| Memória | `battery.pct` | % | `si.battery()` | ⚠️ só notebooks |
+| Memória | `battery.charging` | 0/1 | `si.battery()` | ⚠️ só notebooks |
 | Disco | `disk.usage.<vol>` | % | `fsSize().use` | ✅ |
 | Disco | `disk.free.<vol>` | GB | `fsSize().available` | ✅ |
 | Disco | `disk.read` / `disk.write` | MB/s | `fsStats()` | ❌ omitido |
@@ -234,7 +238,7 @@ GuidePC2/
 ├── src/
 │   ├── server.js                # bootstrap: banco + retenção + coletor + Express
 │   ├── app.js                   # factory do app (testável)
-│   ├── config.js                # PORT, INTERVAL_MS, RETENTION_DAYS, DB_PATH (env)
+│   ├── config.js                # PORT, HOST, INTERVAL_MS, RETENTION_DAYS, DB_PATH, THRESHOLDS_PATH (env)
 │   ├── collector/
 │   │   ├── index.js             # scheduler de 5s com guarda de sobreposição
 │   │   └── metrics.js           # definições e normalização das métricas
@@ -242,14 +246,19 @@ GuidePC2/
 │   │   ├── index.js             # conexão, PRAGMAs, schema, índices
 │   │   ├── writer.js            # ÚNICO ponto de escrita
 │   │   └── queries.js           # leituras da API
-│   ├── api/routes.js            # GET health/latest/metrics + POST webhook
+│   ├── api/
+│   │   ├── routes.js            # rotas GET + POST webhook (grava alerts)
+│   │   ├── thresholds.js        # leitura/merge de config/thresholds.json
+│   │   └── parseAlerts.js       # payload do Grafana → linhas de alerts
+│   ├── services/                # hardware, processos, saúde do Grafana (com cache)
 │   └── web/public/              # página resumo (index.html + favicon.svg)
+├── config/thresholds.json       # thresholds da página (lido por request)
 ├── data/                        # metrics.db (+ -wal/-shm) — gitignored
 ├── grafana/provisioning/
 │   ├── datasources/sqlite.yml
 │   ├── dashboards/provider.yml + {cpu,memory,disk,network}.json
 │   └── alerting/{alerts,notifications}.yml
-├── test/                        # vitest: smoke, db, collector, api (21 testes)
+├── test/                        # vitest: smoke, db, collector, api, services... (56 testes)
 └── docs/superpowers/
     ├── specs/2026-10-05-guidepc2-design.md   # spec de design
     └── plans/2026-10-05-guidepc2.md          # plano de implementação (8 tasks)
@@ -292,15 +301,34 @@ Variáveis de ambiente (todas opcionais, com default em `src/config.js`):
 | `METRICS_INTERVAL_MS` | `5000` | Intervalo de coleta (ms) |
 | `RETENTION_DAYS` | `7` | Dias de histórico mantidos |
 | `DB_PATH` | `./data/metrics.db` | Caminho do banco |
+| `HOST` | `0.0.0.0` | Interface do Express. Use `HOST=127.0.0.1` quando **não** usar Docker — o webhook do Grafana (dentro do container) precisa alcançar o host via `host.docker.internal`, e não alcança `127.0.0.1` do host. |
+| `THRESHOLDS_PATH` | `config/thresholds.json` | Arquivo de thresholds da **página**. Editar o arquivo não reinicia o servidor (lido por request). |
+| `GRAFANA_HEALTH_URL` | `http://localhost:3000/api/health` | Endpoint checado por `/api/health/grafana`. |
 
 Grafana: credenciais e portas estão em `docker-compose.yml`
 (`GF_SECURITY_ADMIN_USER/PASSWORD`). Para expor em rede, **troque a senha
 antes** — as portas estão em `0.0.0.0`.
 
+### Espelho de thresholds
+
+**Espelho manual de thresholds.** A **página** lê `config/thresholds.json`; os
+**alertas do Grafana** vivem em `grafana/provisioning/alerting/alerts.yml`
+(provisionado, sem hot-reload — mudar exige editar o YAML e reiniciar o
+Grafana). São propósitos diferentes: página = aviso visual leigo; Grafana =
+alerta formal.
+
+| O quê | Página (`config/thresholds.json`) | Alerta Grafana (`alerts.yml`) |
+|---|---|---|
+| CPU | warn 70 / crit 90 | dispara > 90 por 2 min |
+| Memória | warn 75 / crit 90 | dispara > 90 por 5 min |
+| Disco | warn 70 / crit 85 | dispara > 85 por 5 min |
+
+Ao mudar um lado, atualize o outro manualmente.
+
 ## 8. Testes e lint
 
 ```powershell
-npm test        # 21 testes: smoke, camada de dados, coletor (mock), API (supertest)
+npm test        # 56 testes: smoke, camada de dados, coletor (mock), API (supertest), thresholds, serviços
 npm run lint    # ESLint 10 flat config — zero erros
 ```
 
@@ -335,7 +363,13 @@ Base: `http://localhost:3001`
 | `GET` | `/api/health` | `{ status, uptime, lastCollectionAt, metricsCount }` |
 | `GET` | `/api/latest` | `{ ts, values: { "cpu.total": 61.9, ... } }` |
 | `GET` | `/api/metrics/:metric?from=&to=` | `{ metric, points: [{ ts, value }] }` — époche **segundos**, `from`/`to` inclusivos, padrão última 1h; período inválido → `400` |
-| `POST` | `/api/alerts/webhook` | receiver dos alertas do Grafana: loga o JSON e devolve `{ ok: true }`; JSON inválido → `400` |
+| `POST` | `/api/alerts/webhook` | receiver do Grafana: valida `payload.alerts[]` e **grava** cada alerta em `alerts` via writer → `{ ok, saved }`; payload sem `alerts[]`/JSON inválido → `400` (não grava) |
+| `GET` | `/api/alerts?limit=` | `{ alerts: [{ ts, alertname, state, value }] }` — ts DESC, `limit` default 20, min 1, max 200 |
+| `GET` | `/api/hardware` | inventário (system/cpu/bios/baseboard/memória+módulos/discos/GPU); cache 10 min; falha parcial vira `null` |
+| `GET` | `/api/processes` | `{ all, running, cpuTop[10], memTop[10] }` (% de CPU/memória por processo); cache 10 s |
+| `GET` | `/api/health/grafana` | `{ online: boolean }` — proxy do `/api/health` do Grafana (timeout 2 s, cache 15 s) |
+| `GET` | `/api/export.csv?from=&to=` | CSV longo `ts,metric,value` (streaming, anexo); padrão última hora; período inválido → `400` |
+| `GET` | `/api/config/thresholds` | `{ cpu/mem/disk: { warn, crit } }` — merge de `config/thresholds.json` sobre os defaults (70/90, 75/90, 70/85) |
 
 Exemplos:
 
@@ -357,6 +391,9 @@ curl "http://localhost:3001/api/metrics/cpu.total?from=1791200000&to=1791240000"
    cosmético, conhecido.
 5. **Leitura exige Node vivo** — parar o Node derruba a leitura do Grafana
    (WAL sem `-shm`). É o trade-off da regra de escritor único.
+6. **Os thresholds da página (`config/thresholds.json`) e os alertas do
+   Grafana (`alerts.yml`) não são a mesma fonte** — veja o espelho na
+   [§7](#7-configuração).
 
 ---
 
@@ -389,6 +426,13 @@ A página responde, em linguagem simples, **"meu PC está bem?"**:
 | **4 indicadores** | Processador, Memória, Disco (pior volume), Rede — valor + barra colorida |
 | **Processador por núcleo** | Se só 1–2 núcleos estão em 100% sempre, algo específico está sugando a CPU |
 | **Discos e rede** | Uso/livre de cada volume e tráfego por interface |
+| **Tema claro/escuro** (ícone no topo) | Alterna o visual; a preferência fica salva no navegador. Na primeira visita segue o tema do Windows. |
+| **Meu computador** | Peças identificadas (processador, memória, discos, BIOS, placa de vídeo). Atualiza a cada 10 minutos. |
+| **Bateria** (só notebooks) | `%` e se está carregando; barra fica âmbar ≤ 30% e vermelha ≤ 15%. |
+| **O que está usando seu PC** | Top 10 processos por CPU e por memória, a cada 10 segundos — é por aqui que se acha o "pesadelo" que deixa o PC lento. |
+| **Histórico de alertas** | Últimos alertas disparados (7 dias); "Disparado" = ativo, "Resolvido" = encerrado. |
+| **Gráficos: online/offline** (rodapé) | Saúde do Grafana. Offline → `docker compose up -d`. |
+| **Baixar dados (CSV)** (rodapé) | Gera um CSV com as métricas dos últimos 7 dias (formato `ts,metric,value`). |
 
 **Cores das barras:** verde < limite de atenção · âmbar = atenção ·
 vermelho = no limite.
@@ -459,8 +503,10 @@ existir** — se aparecer alerta sem motivo, veja [11.5](#115-solução-de-probl
 - Portas expostas: 3001 (API/página) e 3000 (Grafana) em todas as interfaces.
   Para uso pessoal atrás do roteador, tudo bem; em rede compartilhada,
   restrinja com firewall.
-- O webhook aceita qualquer JSON e só loga — não expõe dados nem escreve no
-  banco.
+- Para uso sem Docker, rode `HOST=127.0.0.1 npm start` — as portas ficam só na
+  sua máquina; com Docker (webhook do Grafana), mantenha o default.
+- O webhook valida `payload.alerts[]` antes de gravar na tabela `alerts` (via
+  writer) — JSON inválido ou sem alertas retorna `400` e nada é gravado.
 
 ---
 

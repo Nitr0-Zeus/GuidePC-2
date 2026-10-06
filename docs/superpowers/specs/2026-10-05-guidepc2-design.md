@@ -51,7 +51,8 @@ Nenhum outro componente grava no arquivo:
 - Todo `INSERT`/`DELETE` passa exclusivamente por `src/db/writer.js`.
 - O volume do Grafana é montado **somente leitura** (`:ro` no docker-compose);
   o data source SQLite do Grafana abre o arquivo em modo read-only.
-- A API REST é somente leitura.
+- A API REST só escreve pelo webhook de alertas (que grava na tabela `alerts`
+  via `writer.js`); nenhuma rota GET escreve.
 
 ## Camada de dados
 
@@ -91,14 +92,14 @@ Job diário: `DELETE FROM samples WHERE ts < ?` (7 dias) +
 - Coletor falha em um ciclo não derruba o scheduler (try/catch por coleta,
   log de erro, próxima execução segue).
 
-## API (somente leitura do banco)
+## API (leitura; única escrita pelo webhook de alertas)
 
 | Rota | Resposta |
 |---|---|
 | `GET /api/health` | `{ status, uptime, lastCollectionAt, metricsCount }` |
 | `GET /api/latest` | `{ ts, values: { "cpu.total": 12.3, ... } }` |
 | `GET /api/metrics/:metric?from=&to=` | `{ metric, points: [{ ts, value }] }` |
-| `POST /api/alerts/webhook` | receiver dos alertas do Grafana — apenas loga o payload e retorna 200 (não escreve no banco) |
+| `POST /api/alerts/webhook` | receiver dos alertas do Grafana — valida `payload.alerts[]`, **grava** em `alerts` via writer e retorna `{ ok, saved }` (JSON inválido ou sem alertas → 400) |
 
 ## Página resumo leve
 
@@ -152,7 +153,7 @@ GuidePC2/
 │   │   ├── index.js         # conexão, PRAGMAs, schema
 │   │   ├── writer.js        # ÚNICO ponto de escrita (insertBatch, purge)
 │   │   └── queries.js       # leituras usadas pela API
-│   ├── api/routes.js        # rotas somente-leitura
+│   ├── api/routes.js        # rotas GET + webhook POST (grava alerts)
 │   └── web/public/          # index.html da página resumo
 ├── data/metrics.db          # gitignored
 ├── docker-compose.yml
